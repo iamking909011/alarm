@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Hacker Alarm Clock</title>
+  <style>
+    body {
+      background-color: black;
+      color: #00ff00;
+      font-family: 'Courier New', Courier, monospace;
+      text-align: center;
+      padding-top: 50px;
+      transition: background-color 0.5s, color 0.5s;
+    }
+
+    #clock {
+      font-size: 3em;
+      margin-bottom: 20px;
+      text-shadow: 0 0 10px #00ff00;
+    }
+
+    canvas {
+      background: black;
+      border: 2px solid #00ff00;
+      border-radius: 50%;
+      box-shadow: 0 0 20px #00ff00;
+      margin-bottom: 20px;
+    }
+
+    select, button, input[type="text"] {
+      background-color: black;
+      color: #00ff00;
+      border: 1px solid #00ff00;
+      padding: 10px;
+      margin: 5px;
+      font-size: 1em;
+      border-radius: 5px;
+      text-align: center;
+      box-shadow: 0 0 10px #00ff00;
+    }
+
+    #setAlarmBtn:hover {
+      background-color: #003300;
+      box-shadow: 0 0 15px #00ff00;
+    }
+
+    #alarmStatus {
+      margin-top: 20px;
+      font-size: 1.2em;
+      text-shadow: 0 0 8px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    .alarm-active {
+      background-color: #1a0000 !important;
+      color: red !important;
+    }
+
+    .alarm-active canvas {
+      border-color: red;
+      box-shadow: 0 0 20px red;
+    }
+
+    .alarm-active #clock {
+      text-shadow: 0 0 10px red;
+    }
+
+    .alarm-active select, .alarm-active button, .alarm-active input {
+      color: red;
+      border: 1px solid red;
+      box-shadow: 0 0 10px red;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="analogClock" width="200" height="200"></canvas>
+  <div id="clock">00:00:00</div>
+
+  <div>
+    <select id="alarmHour"></select> :
+    <select id="alarmMinute"></select> :
+    <select id="alarmSecond"></select>
+    <select id="ampm">
+      <option value="AM">AM</option>
+      <option value="PM">PM</option>
+    </select>
+  </div>
+  
+  <button id="setAlarmBtn">Set Alarm</button>
+  <div id="alarmStatus"></div>
+
+  <input type="text" id="stopInput" class="hidden" placeholder='Type "I am ready to go"' oninput="checkStop()" />
+
+  <audio id="alarmSound" loop>
+    <source src="C:\Users\Admin\Downloads\clock.mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+    const clock = document.getElementById('clock');
+    const alarmSound = document.getElementById('alarmSound');
+    const alarmStatus = document.getElementById('alarmStatus');
+    const stopInput = document.getElementById('stopInput');
+    const canvas = document.getElementById("analogClock");
+    const ctx = canvas.getContext("2d");
+
+    const alarmHour = document.getElementById("alarmHour");
+    const alarmMinute = document.getElementById("alarmMinute");
+    const alarmSecond = document.getElementById("alarmSecond");
+    const ampm = document.getElementById("ampm");
+
+    let alarmTime = null;
+    let alarmTriggered = false;
+
+    for (let i = 1; i <= 12; i++) {
+      alarmHour.innerHTML += `<option value="${i}">${String(i).padStart(2, '0')}</option>`;
+    }
+
+    for (let i = 0; i < 60; i++) {
+      const padded = String(i).padStart(2, '0');
+      alarmMinute.innerHTML += `<option value="${i}">${padded}</option>`;
+      alarmSecond.innerHTML += `<option value="${i}">${padded}</option>`;
+    }
+
+    document.getElementById("setAlarmBtn").onclick = () => {
+      let hour = parseInt(alarmHour.value);
+      const minute = alarmMinute.value.padStart(2, '0');
+      const second = alarmSecond.value.padStart(2, '0');
+      const period = ampm.value;
+
+      if (period === "PM" && hour < 12) hour += 12;
+      if (period === "AM" && hour === 12) hour = 0;
+
+      alarmTime = `${String(hour).padStart(2, '0')}:${minute}:${second}`;
+      alarmStatus.textContent = `🕒 Alarm set for ${alarmTime}`;
+      alarmStatus.classList.remove('red-glow');
+      document.body.classList.remove("alarm-active");
+      stopInput.classList.remove('hidden');
+    };
+
+    function updateClock() {
+      const now = new Date();
+      const h = String(now.getHours()).padStart(2, '0');
+      const m = String(now.getMinutes()).padStart(2, '0');
+      const s = String(now.getSeconds()).padStart(2, '0');
+      clock.textContent = `${h}:${m}:${s}`;
+
+      if (alarmTime === `${h}:${m}:${s}` && !alarmTriggered) {
+        triggerAlarm();
+      }
+
+      drawAnalogClock(now);
+    }
+
+    function triggerAlarm() {
+      alarmTriggered = true;
+      alarmSound.play();
+      alarmStatus.textContent = "⏰ Alarm is ringing! Type 'i am ready to go' to stop it.";
+      document.body.classList.add("alarm-active");
+    }
+
+    function checkStop() {
+      const inputText = stopInput.value.trim().toLowerCase();
+      if (inputText === "i am ready to go" && alarmTriggered) {
+        alarmSound.pause();
+        alarmSound.currentTime = 0;
+        alarmTriggered = false;
+        alarmStatus.textContent = "✅ Alarm stopped.";
+        document.body.classList.remove("alarm-active");
+      } else if (inputText && inputText !== "i am ready to go") {
+        alarmStatus.textContent = "❌ Incorrect code. The alarm will keep ringing!";
+      }
+    }
+
+    function drawAnalogClock(now) {
+      const radius = canvas.width / 2;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(radius, radius);
+
+      ctx.beginPath();
+      ctx.arc(0, 0, radius - 5, 0, 2 * Math.PI);
+      ctx.strokeStyle = alarmTriggered ? "red" : "#00ff00";
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      for (let i = 0; i < 12; i++) {
+        const angle = i * Math.PI / 6;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * (radius - 10), Math.sin(angle) * (radius - 10));
+        ctx.lineTo(Math.cos(angle) * (radius - 20), Math.sin(angle) * (radius - 20));
+        ctx.strokeStyle = alarmTriggered ? "red" : "#00ff00";
+        ctx.stroke();
+      }
+
+      const hours = now.getHours() % 12;
+      const minutes = now.getMinutes();
+      const seconds = now.getSeconds();
+
+      drawHand((Math.PI / 6) * hours + (Math.PI / 360) * minutes, radius * 0.4, 4, alarmTriggered ? "red" : "#00ff00");
+      drawHand((Math.PI / 30) * minutes + (Math.PI / 1800) * seconds, radius * 0.6, 3, alarmTriggered ? "red" : "#00ff00");
+      drawHand((Math.PI / 30) * seconds, radius * 0.8, 1, "#ff0000");
+
+      ctx.restore();
+    }
+
+    function drawHand(angle, length, width, color = "#00ff00") {
+      ctx.beginPath();
+      ctx.lineWidth = width;
+      ctx.lineCap = "round";
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(angle - Math.PI / 2) * length, Math.sin(angle - Math.PI / 2) * length);
+      ctx.strokeStyle = color;
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+    }
+
+    setInterval(updateClock, 1000);
+  </script>
+</body>
+</html>
